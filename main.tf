@@ -161,7 +161,7 @@ resource "helm_release" "rancher" {
 
   set {
     name  = "hostname"
-    value = "rancher-prod.aladinmall.id"
+    value = "rancher-prod.noxymon.web.id"
   }
 
   set {
