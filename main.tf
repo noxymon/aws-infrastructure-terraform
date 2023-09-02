@@ -12,31 +12,59 @@ terraform {
   }
 }
 
+data "aws_availability_zones" "available" {}
+
 provider "aws" {
   region = "ap-southeast-3"
 }
 
+locals {
+  name   = basename(path.cwd)
+  region = "ap-southeast-3"
+
+  vpc_cidr = "10.4.0.0/16"
+  azs      = slice(data.aws_availability_zones.available.names, 0, 2)
+
+  tags = {
+    Blueprint   = local.name
+    Environment = "production"
+    Stack       = "terraform"
+  }
+}
+
 
 module "vpc" {
-  name       = "am.apps-production-private-jakarta"
-  source     = "aws-ia/vpc/aws"
-  version    = "4.3.0"
-  az_count   = 1
-  cidr_block = "10.4.0.0/16"
+  source  = "terraform-aws-modules/vpc/aws"
+  version = ">= 5.1.0"
 
-  subnets = {
-    netmask = 16
+  name = local.name
+  cidr = local.vpc_cidr
 
-    public = {
-      name_prefix               = "am.subnet-public-"
-      nat_gateway_configuration = "single_az"
-    }
+  azs             = local.azs
+  public_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k)]
+  private_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 10)]
 
-    private = {
-      name_prefix             = "am.subnet-private-"
-      connect_to_public_natgw = true
-    }
+  enable_nat_gateway = true
+  single_nat_gateway = true
+
+  manage_default_network_acl = true
+  default_network_acl_tags   = { Name = "${local.name}-default" }
+
+  manage_default_route_table = true
+  default_route_table_tags   = { Name = "${local.name}-default" }
+
+  manage_default_security_group = true
+  default_security_group_tags   = { Name = "${local.name}-default" }
+
+  public_subnet_tags = {
+    "kubernetes.io/role/elb" = 1
   }
+
+  private_subnet_tags = {
+    "kubernetes.io/role/internal-elb" = 1
+  }
+
+  tags = local.tags
 }
 
 module "eks_aws" {
@@ -44,7 +72,10 @@ module "eks_aws" {
   version = "19.16.0"
 
   cluster_version = "1.27"
-  cluster_name    = "am.apps-production-jakarta"
+  cluster_name    = "am-apps-production-jakarta"
+
+  control_plane_subnet_ids = module.vpc.private_subnets
+  subnet_ids               = module.vpc.public_subnets
 
   eks_managed_node_groups = {
     default = {
@@ -54,6 +85,8 @@ module "eks_aws" {
       desired_size   = 2
     }
   }
+
+  tags = local.tags
 }
 
 module "eks_blueprint_addons" {
@@ -87,12 +120,9 @@ module "eks_blueprint_addons" {
   enable_metrics_server                  = true
   enable_external_dns                    = true
   enable_cert_manager                    = true
-  cert_manager_route53_hosted_zone_arns  = ["arn:aws:route53:::hostedzone/Z07520773HJ9V1D5F6XH7"]
+  cert_manager_route53_hosted_zone_arns  = ["arn:aws:route53:::hostedzone/Z10115252O1MXKVRS7C5Z"]
 
-  tags = {
-    Environment = "production"
-    Stack       = "terraform"
-  }
+  tags = local.tags
 }
 
 provider "kubernetes" {
