@@ -63,7 +63,7 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "19.16.0"
 
-  cluster_version                = "1.27"
+  cluster_version                = "1.24"
   cluster_name                   = "am-apps-production-jakarta"
   cluster_endpoint_public_access = true
 
