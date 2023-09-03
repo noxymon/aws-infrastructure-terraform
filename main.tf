@@ -137,7 +137,6 @@ resource "helm_release" "rancher" {
   chart            = "rancher"
   repository       = "https://releases.rancher.com/server-charts/stable"
   namespace        = "cattle-system"
-  create_namespace = true
 
   set {
     name  = "hostname"
@@ -146,7 +145,7 @@ resource "helm_release" "rancher" {
 
   set {
     name  = "bootstrapPassword"
-    value = "12345678"
+    value = "GtNkpusaYTobFMfQJvXk"
   }
 
   set {
@@ -165,7 +164,8 @@ resource "helm_release" "rancher" {
   }
 
   depends_on = [
-    module.eks_blueprint_addons
+    module.eks_blueprint_addons,
+    module.cert-manager
   ]
 }
 
@@ -174,6 +174,7 @@ module "cert-manager" {
   version = "2.6.0"
 
   cluster_issuer_email = "admin@aladinmall.id"
+  create_namespace     = false
 
   depends_on = [
     module.eks_blueprint_addons
