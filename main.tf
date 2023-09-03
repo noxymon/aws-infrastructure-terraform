@@ -63,11 +63,12 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "19.16.0"
 
-  cluster_version = "1.27"
-  cluster_name    = "am-apps-production-jakarta"
+  cluster_version                = "1.27"
+  cluster_name                   = "am-apps-production-jakarta"
+  cluster_endpoint_public_access = true
 
   vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.public_subnets
+  subnet_ids = module.vpc.private_subnets
 
   eks_managed_node_groups = {
     default = {
